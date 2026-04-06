@@ -1,1 +1,18 @@
-# stock-checker-practice
+# 概要
+ステラソラの素材・消耗品画面のスクリーンショットから素材数を解析し、一覧表示およびCSV出力する。
+
+# 開発環境
+- Windows 11
+- Docker
+
+# ローカル実行
+
+1. Docker がインストールされた Windows の ターミナル（powershell）で以下のコマンドを実行
+
+```
+# ビルド及び開発サーバーでアプリが起動します
+docker compose up --build
+```
+
+2. ブラウザで http://localhost:5173/stock-checker-practice/#/ にアクセス
+
