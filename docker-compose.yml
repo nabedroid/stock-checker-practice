@@ -1,15 +1,53 @@
 services:
-  app:
-    container_name: app
-    build: .
+  stocker:
+    container_name: stocker
+    build:
+      context: .
+      dockerfile: ./stocker/Dockerfile
     develop:
       watch:
+        - action: rebuild
+          path: ./stocker/package.json
+        - action: rebuild
+          path: ./stocker/Dockerfile
         - action: sync
-          path: .
-          target: ./app
+          path: ./common
+          target: /app
+        - action: sync
+          path: ./stocker
+          target: /app
           ignore:
             - node_modules/
+            - Dockerfile
+            - package.json
+            - README.md
     ports:
-      - "5173:5173"
+      - "3000:3000"
+    stdin_open: true
+    tty: true
+  dicter:
+    container_name: dicter
+    build:
+      context: .
+      dockerfile: ./dicter/Dockerfile
+    develop:
+      watch:
+        - action: rebuild
+          path: ./dicter/package.json
+        - action: rebuild
+          path: ./dicter/Dockerfile
+        - action: sync
+          path: ./common
+          target: /app
+        - action: sync
+          path: ./dicter
+          target: /app
+          ignore:
+            - node_modules/
+            - Dockerfile
+            - package.json
+            - README.md
+    ports:
+      - "3001:3001"
     stdin_open: true
     tty: true
