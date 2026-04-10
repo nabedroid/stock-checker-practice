@@ -1,20 +1,20 @@
 services:
-  stocker:
-    container_name: stocker
+  main:
+    container_name: main
     build:
       context: .
-      dockerfile: ./stocker/Dockerfile
+      dockerfile: ./main/Dockerfile
     develop:
       watch:
         - action: rebuild
-          path: ./stocker/package.json
+          path: ./main/package.json
         - action: rebuild
-          path: ./stocker/Dockerfile
+          path: ./main/Dockerfile
         - action: sync
           path: ./common
           target: /app
         - action: sync
-          path: ./stocker
+          path: ./main
           target: /app
           ignore:
             - node_modules/
@@ -25,22 +25,22 @@ services:
       - "3000:3000"
     stdin_open: true
     tty: true
-  dicter:
-    container_name: dicter
+  manager:
+    container_name: manager
     build:
       context: .
-      dockerfile: ./dicter/Dockerfile
+      dockerfile: ./manager/Dockerfile
     develop:
       watch:
         - action: rebuild
-          path: ./dicter/package.json
+          path: ./manager/package.json
         - action: rebuild
-          path: ./dicter/Dockerfile
+          path: ./manager/Dockerfile
         - action: sync
           path: ./common
           target: /app
         - action: sync
-          path: ./dicter
+          path: ./manager
           target: /app
           ignore:
             - node_modules/

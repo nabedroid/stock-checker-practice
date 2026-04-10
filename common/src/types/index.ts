@@ -8,6 +8,8 @@ export interface AnalyzedItem {
   iconDataUrl: string;
   /** 特徴量データ (Base64) */
   features: string;
+  /** 色情報 (3x3グリッドRGB) */
+  colorHash: number[];
   /** アイテム名（辞書から取得、未知の場合は空） */
   name: string;
   /** 所持数 */
@@ -38,25 +40,6 @@ export interface OcrResult {
   confidence: number;
 }
 
-export interface DictionaryEntry {
-  /** インデックス (Dicter用) */
-  id?: number;
-  /** 特徴量データ (Base64化した記述子 Mat) */
-  features: string;
-  /** アイテム名 */
-  name: string;
-  /** アイコン画像（Base64 Data URL） */
-  iconDataUrl: string;
-}
-
-/**
- * 辞書データ
- */
-export interface Dictionary {
-  version: number;
-  entries: DictionaryEntry[];
-}
-
 /**
  * 解析進捗
  */
@@ -67,4 +50,16 @@ export interface AnalysisProgress {
   percent: number;
   /** メッセージ */
   message: string;
+}
+
+/**
+ * 解析の閾値設定
+ */
+export interface ExtractionSettings {
+  /** ORB最小一致点数 (1-100, default: 5) */
+  minGoodMatches: number;
+  /** 早期リターン閾値 (1-100, default: 10) */
+  earlyReturnThreshold: number;
+  /** 色許容誤差 (1-100, default: 30) */
+  colorThreshold: number;
 }

@@ -16,7 +16,7 @@
 
 ```
 # ビルド及び開発サーバーでアプリが起動します
-docker compose up stocker
+docker compose up main
 ```
 
-2. ブラウザで http://localhost:3000/#/ にアクセス
+2. ブラウザで http://localhost:3000/ にアクセス

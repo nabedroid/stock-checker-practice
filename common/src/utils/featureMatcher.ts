@@ -1,4 +1,4 @@
-import type { DictionaryEntry } from '../types';
+import { ImageUtils } from './imageUtils';
 
 declare const cv: any;
 
@@ -28,7 +28,7 @@ export class FeatureMatcher {
       this.orb.detectAndCompute(mat, mask, keypoints, descriptors);
       if (descriptors.empty()) return '';
       // Mat のデータを Base64 文字列に変換
-      return this.matToBase64(descriptors);
+      return ImageUtils.matToBase64(descriptors);
     } finally {
       keypoints.delete();
       descriptors.delete();
@@ -57,43 +57,6 @@ export class FeatureMatcher {
       return goodMatches;
     } finally {
       matches.delete();
-    }
-  }
-
-  /**
-   * Mat を Base64 文字列に変換
-   */
-  private static matToBase64(mat: any): string {
-    const rows = mat.rows;
-    const cols = mat.cols;
-    const type = mat.type();
-    const data = mat.data;
-    const uint8Array = new Uint8Array(data);
-
-    // 構造化データとして保存 (rows, cols, type, data)
-    const meta = { rows, cols, type };
-    const binary = String.fromCharCode(...uint8Array);
-    const base64Data = btoa(binary);
-
-    return JSON.stringify({ ...meta, data: base64Data });
-  }
-
-  /**
-   * Base64 文字列から Mat を復元
-   */
-  public static base64ToMat(base64: string): any {
-    if (!base64) return new cv.Mat();
-    try {
-      const { rows, cols, type, data } = JSON.parse(base64);
-      const binary = atob(data);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      return cv.matFromArray(rows, cols, type, Array.from(bytes));
-    } catch (e) {
-      console.error('Failed to restore Mat from base64', e);
-      return new cv.Mat();
     }
   }
 }
