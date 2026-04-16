@@ -1,6 +1,6 @@
-import { FeatureMatcher } from '../utils/featureMatcher';
+import { compute, compare } from '../utils/feature';
 import { IconFeatureService } from './iconFeatureService';
-import { ImageUtils } from '../utils/imageUtils';
+import { fromBase64 } from '../utils/mat';
 
 declare const cv: any;
 
@@ -45,7 +45,7 @@ export class ItemMasterData {
 
   public featuresMat(): any {
     if (this._featuresMat === null) {
-      this._featuresMat = ImageUtils.base64ToMat(this.features);
+      this._featuresMat = fromBase64(this.features);
     }
     return this._featuresMat;
   }
@@ -76,27 +76,30 @@ export class ItemMasterData {
  * マスター辞書データを管理するサービス
  */
 export class ItemMasterService {
-  private static instance: ItemMasterService | null = null;
-  private master: ItemMasterData[] = [];
+  private static _instance: ItemMasterService | null = null;
+  private _master: ItemMasterData[] = [];
+  private _iconFeatureService: IconFeatureService;
 
-  private constructor() { }
+  private constructor() {
+    this._iconFeatureService = IconFeatureService.getInstance();
+  }
 
   /**
    * シングルトンインスタンスを取得し、未初期化ならマスターデータを読み込む
    */
   public static async getInstanceAsync(): Promise<ItemMasterService> {
-    if (!this.instance) {
-      this.instance = new ItemMasterService();
-      await this.instance.loadMasterDataAsync();
+    if (!this._instance) {
+      this._instance = new ItemMasterService();
+      await this._instance.loadMasterDataAsync();
     }
-    return this.instance;
+    return this._instance;
   }
 
   public dispose(): void {
     // メモリ解放のため、キャッシュしている特徴量データを破棄する
     // (instance は破棄しない)
-    this.master.forEach(entry => entry.dispose());
-    this.master = [];
+    this._master.forEach(entry => entry.dispose());
+    this._master = [];
   }
 
   /**
@@ -110,7 +113,7 @@ export class ItemMasterService {
         this.dispose();
         const items = await response.json();
         items.forEach((item: ItemMasterDataJson) => {
-          this.master.push(ItemMasterData.fromJson(item));
+          this._master.push(ItemMasterData.fromJson(item));
         });
       }
     } catch (e) {
@@ -130,7 +133,7 @@ export class ItemMasterService {
     // OpenCV が読み込まれていない、または特徴量データがない場合はスキップ
     if (!features || typeof cv === 'undefined') return null;
 
-    const targetMat = ImageUtils.base64ToMat(features);
+    const targetMat = fromBase64(features);
     if (targetMat.empty()) {
       targetMat.delete();
       return null;
@@ -139,20 +142,17 @@ export class ItemMasterService {
     let bestMatch: ItemMasterData | null = null;
     let maxScore = 0;
 
-    for (const item of this.master) {
+    for (const item of this._master) {
       const itemMat = item.featuresMat();
       if (!itemMat || itemMat.empty()) continue;
 
       // 色の比較
       // TODO: 色が異なるだけでスキップすると認識漏れが多発する
-      if (!IconFeatureService.compareColor(colorHash, item.colorHash, colorThreshold)) {
-        console.log(item.name, 'skip: not match color');
-
+      if (!this._iconFeatureService.compareColor(colorHash, item.colorHash, colorThreshold)) {
         continue;
       }
 
-      const score = FeatureMatcher.compare(targetMat, itemMat);
-      console.log(item.name, 'score: ', score);
+      const score = compare(targetMat, itemMat);
 
       if (score > maxScore) {
         maxScore = score;
