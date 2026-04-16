@@ -1,4 +1,5 @@
 import { IconRegion } from '../types';
+import { MatManager } from '../utils/mat';
 
 /**
  * OpenCV (cv) の型定義（簡易版）
@@ -42,16 +43,18 @@ export class IconExtractService {
       throw new Error('OpenCV.js がロードされていません。');
     }
 
+    using matManager = new MatManager();
+
     // 輪郭検出のための前処理
     // グレースケール
-    const gray = new cv.Mat();
+    const gray = matManager.add(new cv.Mat());
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
     // 二値化
-    const binary = new cv.Mat();
+    const binary = matManager.add(new cv.Mat());
     cv.threshold(gray, binary, threshold, 255, cv.THRESH_BINARY);
     // 輪郭検出
-    const contours = new cv.MatVector();
-    const hierarchy = new cv.Mat();
+    const contours = matManager.add(new cv.MatVector());
+    const hierarchy = matManager.add(new cv.Mat());
     cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
     // 検出した輪郭からアイコン領域を抽出
@@ -85,12 +88,6 @@ export class IconExtractService {
       }
       return a.y - b.y;
     });
-
-    // メモリ解放
-    gray.delete();
-    binary.delete();
-    contours.delete();
-    hierarchy.delete();
 
     // 近接すぎる矩形（二重検出など）を除去
     const iconRegions: IconRegion[] = [];

@@ -2,7 +2,7 @@ import type { IconRegion, DictionaryEntry } from '../types';
 import { TesseractOcrService } from './tesseractOcrService';
 import { IconFeatureService } from './iconFeatureService';
 import { IconExtractService } from './iconExtractService';
-import { ImageUtils } from '../utils/imageUtils';
+import { MatManager, crop, toDataUrl } from '../utils/mat';
 
 declare const cv: any;
 
@@ -11,14 +11,16 @@ declare const cv: any;
  */
 export class ItemDataExtractService {
 
+  private readonly iconFeatureService: IconFeatureService;
   private readonly tesseractOcrService: TesseractOcrService;
 
   private constructor(tesseractOcrService: TesseractOcrService) {
+    this.iconFeatureService = IconFeatureService.getInstance();
     this.tesseractOcrService = tesseractOcrService;
   }
 
   public static async getInstanceAsync(): Promise<ItemDataExtractService> {
-    const tesseractOcrService = await TesseractOcrService.getInstanceAsync('jpn');
+    const tesseractOcrService = await TesseractOcrService.getInstanceAsync({ lang: 'jpn' });
     return new ItemDataExtractService(tesseractOcrService);
   }
 
@@ -36,7 +38,7 @@ export class ItemDataExtractService {
 
     // アイコン領域を大まかに切り出す
     const iconAreaRect = { x: src.cols * 0.68, y: src.rows * 0.11, w: src.cols * 0.1, h: src.rows * 0.18 };
-    const iconAreaMat = ImageUtils.crop(src, iconAreaRect.x, iconAreaRect.y, iconAreaRect.w, iconAreaRect.h);
+    const iconAreaMat = crop(src, iconAreaRect.x, iconAreaRect.y, iconAreaRect.w, iconAreaRect.h);
     // アイコン領域からアイコンを検出する
     const iconRegions = await IconExtractService.extractAsync(iconAreaMat, { threshold: 200 });
     if (iconRegions.length === 0) {
@@ -45,21 +47,21 @@ export class ItemDataExtractService {
     // 複数見つかった場合は一番大きいアイコンを選択
     const iconRegion = iconRegions.sort((a: IconRegion, b: IconRegion) => b.width - a.width)[0];
     // アイコンを切り出す
-    const iconMat = ImageUtils.crop(iconAreaMat, iconRegion.x, iconRegion.y, iconRegion.width, iconRegion.height);
-    const iconDataUrl = ImageUtils.matToDataUrl(iconMat);
+    const iconMat = crop(iconAreaMat, iconRegion.x, iconRegion.y, iconRegion.width, iconRegion.height);
+    const iconDataUrl = toDataUrl(iconMat);
 
     // 特徴量と色の計算
-    const features = IconFeatureService.computeFeatures(iconMat);
-    const colorHash = IconFeatureService.computeColorHash(iconMat);
+    const features = this.iconFeatureService.computeFeatures(iconMat);
+    const colorHash = this.iconFeatureService.computeColorHash(iconMat);
 
     // 名前の OCR
     // アイテムの名前欄のみを切り出し、OCRを実行
     const nameAreaRect = { x: src.cols * 0.785, y: src.rows * 0.12, w: src.cols * 0.19, h: src.rows * 0.048 };
-    const nameAreaMat = ImageUtils.crop(src, nameAreaRect.x, nameAreaRect.y, nameAreaRect.w, nameAreaRect.h);
-    const ocrResult = await this.tesseractOcrService.recognizeAsync(nameAreaMat);
+    const nameAreaMat = crop(src, nameAreaRect.x, nameAreaRect.y, nameAreaRect.w, nameAreaRect.h);
+    const ocrText = await this.tesseractOcrService.recognizeAsync(nameAreaMat);
 
     // OCR 結果を補正する
-    const correctName = ItemDataExtractService.toCorrectName(ocrResult.text);
+    const correctName = ItemDataExtractService.toCorrectName(ocrText);
 
     // 後始末
     iconAreaMat.delete();

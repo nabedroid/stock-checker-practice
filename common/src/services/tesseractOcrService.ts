@@ -1,6 +1,5 @@
-import { createWorker } from 'tesseract.js';
-import { ImageUtils } from '../utils/imageUtils';
-import type { OcrResult } from '../types';
+import { createWorker, PSM } from 'tesseract.js';
+import { toImageData } from '../utils/mat';
 
 /**
  * Tesseract.js を用いた OCR サービス実装
@@ -12,32 +11,53 @@ export class TesseractOcrService {
     this.worker = worker;
   }
 
-  public static async getInstanceAsync(lang: string = 'eng', whitelist?: string): Promise<TesseractOcrService> {
+  public static async getInstanceAsync({
+    lang = 'eng',
+    whitelist = null,
+    psm = null,
+  }: {
+    lang?: string;
+    whitelist?: string | null;
+    psm?: number | null;
+  } = {}): Promise<TesseractOcrService> {
     const worker = await createWorker(lang);
+    const params: Record<string, any> = {};
 
-    if (whitelist) {
-      await worker.setParameters({
-        tessedit_char_whitelist: whitelist,
-      });
+    if (whitelist !== null) params.tessedit_char_whitelist = whitelist;
+    if (psm !== null) params.tessedit_pageseg_mode = psm;
+
+    if (Object.keys(params).length > 0) {
+      await worker.setParameters(params);
     }
 
     return new TesseractOcrService(worker);
   }
 
-  public async recognizeAsync(mat: any): Promise<OcrResult> {
+  public async recognizeAsync(
+    mat: any,
+    rectangle: {
+      x: number, y: number, width: number, height: number
+    } | null = null,
+  ): Promise<string> {
 
-    const imageData = ImageUtils.matToImageData(mat);
+    const imageData = toImageData(mat);
     const canvas = document.createElement('canvas');
     canvas.width = mat.cols;
     canvas.height = mat.rows;
     canvas.getContext('2d')?.putImageData(imageData, 0, 0);
 
-    const { data: { text, confidence } } = await this.worker.recognize(canvas);
+    let result: string;
+    if (rectangle) {
+      const { data: { text } } = await this.worker.recognize(canvas, {
+        rectangle: { top: rectangle.y, left: rectangle.x, width: rectangle.width, height: rectangle.height },
+      });
+      result = text;
+    } else {
+      const { data: { text } } = await this.worker.recognize(canvas);
+      result = text;
+    }
 
-    return {
-      text: text.trim(),
-      confidence: confidence / 100,
-    };
+    return result.trim();
   }
 
   public async dispose(): Promise<void> {
@@ -45,5 +65,9 @@ export class TesseractOcrService {
       await this.worker.terminate();
       this.worker = null;
     }
+  }
+
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.dispose();
   }
 }

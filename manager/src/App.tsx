@@ -142,6 +142,7 @@ function App() {
   }
 
   const handleRecalculateFeatures = useCallback(async () => {
+    const iconFeatureService = IconFeatureService.getInstance();
     if (entries.length === 0) return;
     setIsAnalyzing(true);
     setProgress({ step: 'loading', percent: 0, message: '全アイテムの特徴量と色情報を再計算中...' });
@@ -159,8 +160,8 @@ function App() {
 
         const img = await imageFromDataUrl(entry.iconDataUrl);
         const mat = cv.imread(img);
-        const features = IconFeatureService.computeFeatures(mat);
-        const colorHash = IconFeatureService.computeColorHash(mat);
+        const features = iconFeatureService.computeFeatures(mat);
+        const colorHash = iconFeatureService.computeColorHash(mat);
         mat.delete();
 
         entry.features = features;

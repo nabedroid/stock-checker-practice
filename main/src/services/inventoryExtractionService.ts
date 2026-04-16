@@ -1,27 +1,30 @@
 import type { AnalyzedItem, ExtractionSettings } from '../types';
 import { IconExtractService } from './iconExtractService';
-import { ImageUtils } from '../utils/imageUtils';
+import { crop, MatManager, toDataUrl, invert, fromBase64 } from '../utils/mat';
 import { IconFeatureService } from './iconFeatureService';
 import { ItemMasterService } from './itemMasterService';
 import { TesseractOcrService } from './tesseractOcrService';
-import { FeatureMatcher } from '../utils/featureMatcher';
+import { compare } from '../utils/feature';
 
 declare const cv: any;
 
 export class InventoryExtractionService {
 
+  private readonly iconFeatureService: IconFeatureService;
   private readonly tesseractOcrService: TesseractOcrService;
   private readonly itemMasterService: ItemMasterService;
 
-  private constructor(tesseractOcrService: TesseractOcrService, itemMasterService: ItemMasterService) {
+  private constructor(iconFeatureService: IconFeatureService, tesseractOcrService: TesseractOcrService, itemMasterService: ItemMasterService) {
+    this.iconFeatureService = iconFeatureService;
     this.tesseractOcrService = tesseractOcrService;
     this.itemMasterService = itemMasterService;
   }
 
   public static async getInstanceAsync(): Promise<InventoryExtractionService> {
-    const tesseractOcrService = await TesseractOcrService.getInstanceAsync('eng', '0123456789');
+    const iconFeatureService = IconFeatureService.getInstance();
+    const tesseractOcrService = await TesseractOcrService.getInstanceAsync({ lang: 'eng', whitelist: '0123456789x' });
     const itemMasterService = await ItemMasterService.getInstanceAsync();
-    const instance = new InventoryExtractionService(tesseractOcrService, itemMasterService);
+    const instance = new InventoryExtractionService(iconFeatureService, tesseractOcrService, itemMasterService);
     return instance;
   }
 
@@ -103,7 +106,11 @@ export class InventoryExtractionService {
     settings: ExtractionSettings,
     onProgress?: (percent: number, message: string) => void
   ): Promise<AnalyzedItem[]> {
-    const iconRegions = await IconExtractService.extractAsync(src, { minIconWidth: 50, maxIconWidth: 150 });
+    using matManager = new MatManager();
+    const iconRegions = await IconExtractService.extractAsync(
+      src,
+      { minIconWidth: 50, maxIconWidth: 150 }
+    );
     const results: AnalyzedItem[] = [];
 
     for (let j = 0; j < iconRegions.length; j++) {
@@ -115,20 +122,19 @@ export class InventoryExtractionService {
       }
 
       // アイコン領域を切り出し
-      const iconMat = ImageUtils.crop(src, region.x, region.y, region.width, region.height);
-      const iconDataUrl = ImageUtils.matToDataUrl(iconMat);
+      const iconMat = matManager.add(crop(src, region.x, region.y, region.width, region.height));
+      const iconDataUrl = toDataUrl(iconMat);
 
       // 所持数をOCRで抽出
       const quantity = await this.ocrNumberAsync(iconMat);
       if (quantity === null) {
         console.log('skip: cannot read quantity');
-        iconMat.delete();
         continue;
       }
 
       // アイコンの特徴量を計算
-      const features = IconFeatureService.computeFeatures(iconMat);
-      const colorHash = IconFeatureService.computeColorHash(iconMat);
+      const features = this.iconFeatureService.computeFeatures(iconMat);
+      const colorHash = this.iconFeatureService.computeColorHash(iconMat);
       // 特徴量をもとにアイテム名を検索
       const itemData = this.itemMasterService.findItem(
         features,
@@ -149,8 +155,6 @@ export class InventoryExtractionService {
         sourceImageIndex,
         index: j,
       });
-
-      iconMat.delete();
     }
 
     return results;
@@ -162,35 +166,62 @@ export class InventoryExtractionService {
    * @returns 所持数
    */
   private async ocrNumberAsync(iconMat: any): Promise<number | null> {
-    // アイコンの右下に所持数が表示されているので、そこを切り出す
-    const iconNumberMat = ImageUtils.crop(iconMat, 0, iconMat.rows * 0.8, iconMat.cols, iconMat.rows * 0.2);
-    // OCR の前処理
-    // 数字の色 (#264278) を抽出
-    // const maskMat = ImageUtils.extractColor(iconNumberMat, [30, 50, 110, 0], [50, 70, 130, 255]);
-    // const maskMat = ImageUtils.extractColor(iconNumberMat, [20, 40, 100, 0], [60, 80, 140, 255]);
-    const maskMat = ImageUtils.extractColor(iconNumberMat, [0, 20, 80, 0], [80, 110, 170, 255]);
-    const invertedMat = ImageUtils.invert(maskMat);
-    const ocrResult = await this.tesseractOcrService.recognizeAsync(invertedMat);
-    iconNumberMat.delete();
-    maskMat.delete();
-    invertedMat.delete();
-    // OCR 実行
-    // const grayMat = new cv.Mat();
-    // cv.cvtColor(iconNumberMat, grayMat, cv.COLOR_RGBA2GRAY);
-    // const binaryMat = new cv.Mat();
-    // cv.threshold(grayMat, binaryMat, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
-    // const ocrResult = await this.tesseractEngine.recognizeAsync(binaryMat);
-    // iconNumberMat.delete();
-    // grayMat.delete();
-    // binaryMat.delete();
-
-    console.log('ocrResult: ', ocrResult.text);
+    using matManager = new MatManager();
+    // アイコン下部（数字が描かれている領域）を切り出す
+    const iconLowerMat = matManager.add(crop(iconMat, 0, iconMat.rows * 0.8, iconMat.cols, iconMat.rows * 0.2));
+    // 数字の領域を二値化
+    const grayMat = matManager.add(new cv.Mat());
+    cv.cvtColor(iconLowerMat, grayMat, cv.COLOR_RGBA2GRAY);
+    const binaryMat = matManager.add(new cv.Mat());
+    cv.threshold(grayMat, binaryMat, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
+    // 輪郭検出
+    const contoursMat = matManager.add(new cv.MatVector());
+    const hierarchyMat = matManager.add(new cv.Mat());
+    cv.findContours(binaryMat, contoursMat, hierarchyMat, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+    // 検出された輪郭からノイズを除去する
+    const rects: cv.Rect[] = [];
+    for (let i = 0; i < contoursMat.size(); i++) {
+      const cnt = matManager.add(contoursMat.get(i));
+      const rect = cv.boundingRect(cnt);
+      // 明らかに小さい、細い輪郭を除去
+      if (rect.width > 2 && iconLowerMat.rows * 0.3 <= rect.height && rect.height <= iconLowerMat.rows * 0.8) {
+        rects.push(rect);
+      }
+    }
+    // 1桁目、2桁目の数字の底辺のy座標を算出
+    const rightLimit = iconLowerMat.cols * 0.8;
+    const numberBottomY = rects
+      .filter(r => r.x > rightLimit)
+      .reduce((max, r) => Math.max(max, r.y + r.height), 0);
+    // 共通の底辺を持つ輪郭（＝数字の輪郭の可能性が高い）を抽出
+    const yThreshold = iconLowerMat.rows * 0.1;
+    const targetRects = rects
+      .filter(r => Math.abs(r.y + r.height - numberBottomY) <= yThreshold);
+    // 数字らしき輪郭がなければ null を返す
+    if (targetRects.length === 0) {
+      return null;
+    }
+    // 全ての数字を内包する矩形を算出
+    const minX = Math.min(...targetRects.map(r => r.x));
+    const minY = Math.min(...targetRects.map(r => r.y));
+    const maxX = Math.max(...targetRects.map(r => r.x + r.width));
+    const maxY = Math.max(...targetRects.map(r => r.y + r.height));
+    // 少し余裕をもって切り出す
+    const padding = 2;
+    const x = minX - padding < 0 ? 0 : minX - padding;
+    const y = minY - padding < 0 ? 0 : minY - padding;
+    const width = x + maxX - minX + padding * 2 > binaryMat.cols ? binaryMat.cols - minX : maxX - minX + padding * 2;
+    const height = y + maxY - minY + padding * 2 > binaryMat.rows ? binaryMat.rows - minY : maxY - minY + padding * 2;
+    const numberMat = matManager.add(crop(binaryMat, x, y, width, height));
+    // 反転
+    const invertedMat = matManager.add(invert(numberMat));
+    const recognizedText = await this.tesseractOcrService.recognizeAsync(invertedMat);
     // 数字のみを抽出
-    const digits = ocrResult.text?.replace(/\D/g, '');
+    const digits = recognizedText.replace(/\D/g, '');
     if (digits === null || digits === '') {
       return null;
     }
-    // 数字が読み取れない場合はスキップ
+
     return parseInt(digits);
   }
 
@@ -221,7 +252,7 @@ export class InventoryExtractionService {
           continue;
         }
 
-        const m1 = ImageUtils.base64ToMat(item.features);
+        const m1 = fromBase64(item.features);
         if (m1.empty()) {
           m1.delete();
           uniqueItems.push(item);
@@ -230,7 +261,7 @@ export class InventoryExtractionService {
 
         let isDuplicate = false;
         for (const m2 of uniqueMats) {
-          const score = FeatureMatcher.compare(m1, m2);
+          const score = compare(m1, m2);
           if (score >= orbThreshold) {
             isDuplicate = true;
             break;
