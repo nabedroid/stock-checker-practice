@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react'
-import { ImageUploader } from './components/ImageUploader'
-import { AnalysisProgress } from './components/AnalysisProgress'
+import { ImageUploader } from '@common/components/ImageUploader'
+import { AnalysisProgress } from '@common/components/AnalysisProgress'
 import { ItemDataExtractService } from './services/itemDataExtractService'
-import { ItemMasterData, ItemMasterDataJson } from './services/itemMasterService';
-import { IconFeatureService } from './services/iconFeatureService'
-import type { AnalysisProgress as ProgressType } from './types'
+import { ItemMasterData, ItemMasterDataJson } from '@common/services/itemMasterService';
+import { IconFeatureService } from '@common/services/iconFeatureService'
+import type { AnalysisProgress as ProgressType } from '@common/types'
 
 declare const cv: any;
 
@@ -36,11 +36,11 @@ function App() {
   }, [])
 
   const handleImagesSelected = useCallback((files: File[]) => {
-    setImages((prev) => [...prev, ...files])
+    setImages((prev: File[]) => [...prev, ...files])
   }, [])
 
   const handleRemoveImage = useCallback((index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index))
+    setImages((prev: File[]) => prev.filter((_, i) => i !== index))
   }, [])
 
   // 解析処理 (1枚から1アイテム)
@@ -121,7 +121,7 @@ function App() {
       setDragOverIndex(null)
       return
     }
-    setEntries((prev) => {
+    setEntries((prev: ItemMasterData[]) => {
       const updated = [...prev]
       const temp = updated[draggedIndex]
       updated.splice(draggedIndex, 1)
@@ -138,7 +138,7 @@ function App() {
   }
 
   const handleRemoveEntry = (index: number) => {
-    setEntries((prev) => prev.filter((_, i) => i !== index))
+    setEntries((prev: ItemMasterData[]) => prev.filter((_, i) => i !== index))
   }
 
   const handleRecalculateFeatures = useCallback(async () => {

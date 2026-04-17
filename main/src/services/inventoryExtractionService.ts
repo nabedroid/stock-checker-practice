@@ -1,10 +1,10 @@
-import type { AnalyzedItem, ExtractionSettings } from '../types';
-import { IconExtractService } from './iconExtractService';
-import { crop, MatManager, toDataUrl, invert, fromBase64 } from '../utils/mat';
-import { IconFeatureService } from './iconFeatureService';
-import { ItemMasterService } from './itemMasterService';
-import { TesseractOcrService } from './tesseractOcrService';
-import { compare } from '../utils/feature';
+import type { AnalyzedItem, ExtractionSettings } from '@common/types';
+import { IconExtractService } from '@common/services/iconExtractService';
+import { crop, MatManager, toDataUrl, invert, fromBase64 } from '@common/utils/mat';
+import { IconFeatureService } from '@common/services/iconFeatureService';
+import { ItemMasterService } from '@common/services/itemMasterService';
+import { TesseractOcrService } from '@common/services/tesseractOcrService';
+import { compare } from '@common/utils/feature';
 
 declare const cv: any;
 
@@ -134,6 +134,11 @@ export class InventoryExtractionService {
 
       // アイコンの特徴量を計算
       const features = this.iconFeatureService.computeFeatures(iconMat);
+      if (!features) {
+        console.log('skip: cannot compute features');
+        continue;
+      }
+
       const colorHash = this.iconFeatureService.computeColorHash(iconMat);
       // 特徴量をもとにアイテム名を検索
       const itemData = this.itemMasterService.findItem(
@@ -151,9 +156,8 @@ export class InventoryExtractionService {
         colorHash,
         name: itemData?.name || '',
         quantity: quantity,
-        confidence: null,
         sourceImageIndex,
-        index: j,
+        // index: j,
       });
     }
 
@@ -179,7 +183,7 @@ export class InventoryExtractionService {
     const hierarchyMat = matManager.add(new cv.Mat());
     cv.findContours(binaryMat, contoursMat, hierarchyMat, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
     // 検出された輪郭からノイズを除去する
-    const rects: cv.Rect[] = [];
+    const rects: any[] = [];
     for (let i = 0; i < contoursMat.size(); i++) {
       const cnt = matManager.add(contoursMat.get(i));
       const rect = cv.boundingRect(cnt);

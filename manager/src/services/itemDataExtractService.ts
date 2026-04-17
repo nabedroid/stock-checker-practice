@@ -1,8 +1,8 @@
-import type { IconRegion, DictionaryEntry } from '../types';
-import { TesseractOcrService } from './tesseractOcrService';
-import { IconFeatureService } from './iconFeatureService';
-import { IconExtractService } from './iconExtractService';
-import { MatManager, crop, toDataUrl } from '../utils/mat';
+import type { IconRegion, DictionaryEntry } from '@common/types';
+import { TesseractOcrService } from '@common/services/tesseractOcrService';
+import { IconFeatureService } from '@common/services/iconFeatureService';
+import { IconExtractService } from '@common/services/iconExtractService';
+import { MatManager, crop, toDataUrl } from '@common/utils/mat';
 
 declare const cv: any;
 

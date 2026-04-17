@@ -14,8 +14,6 @@ export interface AnalyzedItem {
   name: string;
   /** 所持数 */
   quantity: number | null;
-  /** OCR信頼度 (0-1) */
-  confidence: number;
   /** 元画像のインデックス */
   sourceImageIndex: number;
 }

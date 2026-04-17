@@ -1,12 +1,15 @@
 FROM node:20-alpine
 
-WORKDIR /app
+EXPOSE 3000
 
-EXPOSE 5173
+WORKDIR /app/
 
-COPY ./main/package.json ./
+COPY ./main/package.json .
 RUN npm install
-COPY ./main/ .
-COPY ./common/ .
+
+COPY ./main /app/main
+COPY ./common /app/common
+
+WORKDIR /app/main
 
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

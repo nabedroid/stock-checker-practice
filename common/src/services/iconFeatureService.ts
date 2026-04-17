@@ -2,7 +2,6 @@
 import {
   compute as computeFeatures,
   compare as compareDescriptors,
-  ComputeResult,
 } from "../utils/feature";
 import { MatManager } from "../utils/mat";
 import { toBase64 } from "../utils/mat";

@@ -23,9 +23,16 @@
     "noUncheckedSideEffectImports": true,
     "types": [
       "vite/client"
-    ]
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@common/*": [
+        "../common/src/*"
+      ]
+    }
   },
   "include": [
-    "src"
+    "src",
+    "../common/src"
   ]
 }

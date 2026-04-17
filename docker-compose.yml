@@ -12,10 +12,10 @@ services:
           path: ./main/Dockerfile
         - action: sync
           path: ./common
-          target: /app
+          target: /app/common
         - action: sync
           path: ./main
-          target: /app
+          target: /app/main
           ignore:
             - node_modules/
             - Dockerfile
@@ -38,10 +38,10 @@ services:
           path: ./manager/Dockerfile
         - action: sync
           path: ./common
-          target: /app
+          target: /app/common
         - action: sync
           path: ./manager
-          target: /app
+          target: /app/manager
           ignore:
             - node_modules/
             - Dockerfile
