@@ -1,8 +1,8 @@
-import React, { useState, useCallback } from 'react'
-import { ImageUploader } from './components/ImageUploader'
-import { AnalysisProgress } from './components/AnalysisProgress'
+import { useState, useCallback } from 'react'
+import { ImageUploader } from '@common/components/ImageUploader'
+import { AnalysisProgress } from '@common/components/AnalysisProgress'
 import { InventoryExtractionService } from './services/inventoryExtractionService'
-import type { AnalyzedItem, AnalysisProgress as ProgressType, ExtractionSettings } from './types'
+import type { AnalyzedItem, AnalysisProgress as ProgressType, ExtractionSettings } from '@common/types'
 
 const DEFAULT_SETTINGS: ExtractionSettings = {
   minGoodMatches: 5,
@@ -205,7 +205,7 @@ function App() {
                   />
                   <input
                     type="text"
-                    value={item.quantity}
+                    value={item.quantity ?? ''}
                     onChange={(e: any) => handleUpdateResult(idx, 'quantity', e.target.value)}
                     style={{
                       width: '60%',

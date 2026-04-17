@@ -1,4 +1,4 @@
-import { compute, compare } from '../utils/feature';
+import { compare } from '../utils/feature';
 import { IconFeatureService } from './iconFeatureService';
 import { fromBase64 } from '../utils/mat';
 
@@ -129,7 +129,7 @@ export class ItemMasterService {
    * @param earlyReturnThreshold この点数以上一致したら即座に返す (デフォルト 10)
    * @param colorThreshold 色の許容誤差 (デフォルト 30)
    */
-  public findItem(features: string, colorHash: number[], minGoodMatches: number = 5, earlyReturnThreshold: number = 10, colorThreshold: number = 30): DictionaryEntry | null {
+  public findItem(features: string, colorHash: number[], minGoodMatches: number = 5, earlyReturnThreshold: number = 10, colorThreshold: number = 30): ItemMasterData | null {
     // OpenCV が読み込まれていない、または特徴量データがない場合はスキップ
     if (!features || typeof cv === 'undefined') return null;
 

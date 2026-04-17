@@ -1,4 +1,4 @@
-import { createWorker, PSM } from 'tesseract.js';
+import { createWorker } from 'tesseract.js';
 import { toImageData } from '../utils/mat';
 
 /**
