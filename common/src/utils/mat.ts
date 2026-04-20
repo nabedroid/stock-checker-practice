@@ -100,6 +100,8 @@ export const toBase64 = (mat: any): string => {
 
 /**
  * Base64 文字列から Mat に変換する
+ * @param base64 Base64 文字列
+ * @returns Mat オブジェクト
  */
 export const fromBase64 = (base64: string): any => {
   if (!base64) return new cv.Mat();
@@ -115,4 +117,28 @@ export const fromBase64 = (base64: string): any => {
     console.error('Failed to restore Mat from base64', e);
     return new cv.Mat();
   }
+}
+
+/**
+ * File から Mat を作成する
+ * @param file File オブジェクト
+ * @returns Mat オブジェクト
+ */
+export const fromFile = (file: File): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+    image.onload = () => {
+      try {
+        const mat = cv.imread(image);
+        resolve(mat);
+      } catch (e) {
+        reject(e);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+    image.onerror = reject;
+    image.src = url;
+  });
 }
