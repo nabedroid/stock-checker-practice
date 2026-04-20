@@ -1,6 +1,6 @@
 import type { AnalyzedItem, ExtractionSettings } from '@common/types';
 import { IconExtractService } from '@common/services/iconExtractService';
-import { crop, MatManager, toDataUrl, invert, fromBase64 } from '@common/utils/mat';
+import { crop, MatManager, toDataUrl, invert, fromBase64, fromFile } from '@common/utils/mat';
 import { IconFeatureService } from '@common/services/iconFeatureService';
 import { ItemMasterService } from '@common/services/itemMasterService';
 import { TesseractOcrService } from '@common/services/tesseractOcrService';
@@ -32,18 +32,8 @@ export class InventoryExtractionService {
     this.tesseractOcrService?.dispose();
   }
 
-  private readImage(file: File): Promise<HTMLImageElement> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+  public [Symbol.dispose](): void {
+    this.dispose();
   }
 
   /**
@@ -65,8 +55,7 @@ export class InventoryExtractionService {
         `画像読み込み中 (${imgIndex}/${images.length}): ${file.name}`
       );
 
-      const img = await this.readImage(file);
-      const src = cv.imread(img);
+      const src = await fromFile(file);
 
       const items = await this.analyzeAsync(src, i, settings, (percent, message) => {
         onProgress(
@@ -94,7 +83,7 @@ export class InventoryExtractionService {
   }
 
   /**
-   * cv.Mat 画像からアイコンを特化して検出し、OCRおよび特徴量からアイテム情報を抽出する
+   * 画像からアイコンを検出し、OCRおよび特徴量からアイテム情報を抽出する
    * @param src 解析対象の cv.Mat
    * @param sourceImageIndex 画像のインデックス番号
    * @param onProgress プログレス通知コールバック
@@ -107,6 +96,7 @@ export class InventoryExtractionService {
     onProgress?: (percent: number, message: string) => void
   ): Promise<AnalyzedItem[]> {
     using matManager = new MatManager();
+    // アイコン領域を検出
     const iconRegions = await IconExtractService.extractAsync(
       src,
       { minIconWidth: 50, maxIconWidth: 150 }
@@ -115,7 +105,7 @@ export class InventoryExtractionService {
 
     for (let j = 0; j < iconRegions.length; j++) {
       const region = iconRegions[j];
-      console.log('icon: ', region.x, region.y, region.width, region.height);
+      // console.log('icon: ', region.x, region.y, region.width, region.height);
 
       if (onProgress) {
         onProgress((j / iconRegions.length) * 100, `アイテム ${j + 1}/${iconRegions.length}`);
@@ -123,11 +113,12 @@ export class InventoryExtractionService {
 
       // アイコン領域を切り出し
       const iconMat = matManager.add(crop(src, region.x, region.y, region.width, region.height));
+      // DataUrlに変換
       const iconDataUrl = toDataUrl(iconMat);
-
-      // 所持数をOCRで抽出
+      // OCR して所持数を抽出
       const quantity = await this.ocrNumberAsync(iconMat);
       if (quantity === null) {
+        // 所持数が読み取れない場合はスキップ
         console.log('skip: cannot read quantity');
         continue;
       }
@@ -135,10 +126,12 @@ export class InventoryExtractionService {
       // アイコンの特徴量を計算
       const features = this.iconFeatureService.computeFeatures(iconMat);
       if (!features) {
+        // 特徴量が計算できない場合はスキップ
         console.log('skip: cannot compute features');
         continue;
       }
 
+      // アイコンの色情報を計算
       const colorHash = this.iconFeatureService.computeColorHash(iconMat);
       // 特徴量をもとにアイテム名を検索
       const itemData = this.itemMasterService.findItem(
