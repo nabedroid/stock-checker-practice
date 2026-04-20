@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig({
   // リポジトリ名と合わせること
-  base: '/stock-checker-practice/',
+  base: '/stellasora-inventory-ocr/',
   plugins: [
     react(),
     // common/public をルートにコピー

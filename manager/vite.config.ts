@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig({
   // リポジトリ名に合わせて変更
-  base: '/stock-checker-practice/manager/',
+  base: '/stellasora-inventory-ocr/manager/',
   plugins: [
     react(),
     // common/public をルートにコピー
