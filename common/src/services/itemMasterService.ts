@@ -28,7 +28,7 @@ export class ItemMasterData {
   /** 特徴量データ (Base64化した記述子 Mat) */
   private _featuresMat: any | null;
 
-  constructor(public param: {
+  constructor(param: {
     id: number,
     features: string,
     colorHash: number[],
@@ -54,7 +54,7 @@ export class ItemMasterData {
     return new ItemMasterData(json);
   }
 
-  public toJson(): ItemMasterDataJson {
+  public toJSON(): ItemMasterDataJson {
     return {
       id: this.id,
       features: this.features,
@@ -82,6 +82,13 @@ export class ItemMasterService {
 
   private constructor() {
     this._iconFeatureService = IconFeatureService.getInstance();
+  }
+
+  /**
+   * マスターデータの全件を取得する (サマリービューアイコン表示などのため)
+   */
+  public get masterData(): ItemMasterData[] {
+    return this._master;
   }
 
   /**

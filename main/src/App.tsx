@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { ImageUploader } from '@common/components/ImageUploader'
 import { AnalysisProgress } from '@common/components/AnalysisProgress'
 import { InventoryExtractionService } from './services/inventoryExtractionService'
+import { ItemMasterService } from '../../common/src/services/itemMasterService'
+import { SummaryView } from './components/SummaryView'
 import type { AnalyzedItem, AnalysisProgress as ProgressType, ExtractionSettings } from '@common/types'
-
 const DEFAULT_SETTINGS: ExtractionSettings = {
   minGoodMatches: 5,
   earlyReturnThreshold: 10,
@@ -19,6 +20,14 @@ function App() {
   const [progress, setProgress] = useState<ProgressType | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [settings, setSettings] = useState<ExtractionSettings>(DEFAULT_SETTINGS)
+  const [viewMode, setViewMode] = useState<'list' | 'summary'>('list')
+  const [masterData, setMasterData] = useState<any[]>([])
+
+  useEffect(() => {
+    ItemMasterService.getInstanceAsync().then(service => {
+      setMasterData(service.masterData);
+    });
+  }, []);
 
   const handleImagesSelected = useCallback((files: File[]) => {
     setImages((prev: File[]) => [...prev, ...files])
@@ -90,20 +99,36 @@ function App() {
     <div className="app">
       <header className="app-header" style={{ padding: '20px', backgroundColor: '#ffffff', color: '#000000', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ margin: 0 }}>ステラソラ アイテム所持数チェッカー</h1>
-        <button
-          onClick={() => setIsSettingsOpen(true)}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#f1f2f6',
-            color: '#2f3542',
-            border: '1px solid #ced6e0',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: 'bold'
-          }}
-        >
-          ⚙️ 設定
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={() => setViewMode(prev => prev === 'list' ? 'summary' : 'list')}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: viewMode === 'list' ? '#f39c12' : '#4a69bd',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            {viewMode === 'list' ? 'サマリー表示に切替' : 'リスト表示に戻る'}
+          </button>
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#f1f2f6',
+              color: '#2f3542',
+              border: '1px solid #ced6e0',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            ⚙️ 設定
+          </button>
+        </div>
       </header>
 
       <main className="app-main" style={{ padding: '20px' }}>
@@ -135,7 +160,29 @@ function App() {
 
         {progress && <AnalysisProgress progress={progress} />}
 
-        {results.length > 0 && (
+        {viewMode === 'summary' && (
+          <section className="summary-section" style={{ marginTop: '30px' }}>
+            {results.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '15px' }}>
+                <button
+                  onClick={handleExportCSV}
+                  style={{ padding: '8px 16px', backgroundColor: '#4a69bd', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  CSVエクスポート
+                </button>
+                <button
+                  onClick={handleReset}
+                  style={{ padding: '8px 16px', backgroundColor: '#e55039', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  リセット
+                </button>
+              </div>
+            )}
+            <SummaryView results={results} masterData={masterData} />
+          </section>
+        )}
+
+        {viewMode === 'list' && results.length > 0 && (
           <section className="results-user" style={{ marginTop: '30px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
               <h2 style={{ margin: 0 }}>在庫抽出結果 ({results.length} 件)</h2>

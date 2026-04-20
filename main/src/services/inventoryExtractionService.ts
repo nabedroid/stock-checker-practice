@@ -119,7 +119,7 @@ export class InventoryExtractionService {
       const quantity = await this.ocrNumberAsync(iconMat);
       if (quantity === null) {
         // 所持数が読み取れない場合はスキップ
-        console.log('skip: cannot read quantity');
+        // console.log('skip: cannot read quantity');
         continue;
       }
 
@@ -127,7 +127,7 @@ export class InventoryExtractionService {
       const features = this.iconFeatureService.computeFeatures(iconMat);
       if (!features) {
         // 特徴量が計算できない場合はスキップ
-        console.log('skip: cannot compute features');
+        // console.log('skip: cannot compute features');
         continue;
       }
 
