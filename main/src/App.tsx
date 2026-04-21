@@ -7,7 +7,7 @@ import { SummaryView } from './components/SummaryView'
 import type { AnalyzedItem, AnalysisProgress as ProgressType, ExtractionSettings } from '@common/types'
 const DEFAULT_SETTINGS: ExtractionSettings = {
   minGoodMatches: 5,
-  earlyReturnThreshold: 10,
+  earlyReturnThreshold: 50,
   colorThreshold: 30
 };
 

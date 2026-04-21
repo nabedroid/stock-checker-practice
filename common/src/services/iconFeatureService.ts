@@ -3,8 +3,7 @@ import {
   compute as computeFeatures,
   compare as compareDescriptors,
 } from "../utils/feature";
-import { MatManager } from "../utils/mat";
-import { toBase64 } from "../utils/mat";
+import { MatManager, toBase64, crop } from "../utils/mat";
 
 declare const cv: any;
 
@@ -25,29 +24,44 @@ export class IconFeatureService {
     return this._instance;
   }
 
+  private static preprocessCompute(mat: any): any {
+    using matManager = new MatManager();
+
+    // 短い辺に合わせて、中央を正方形に切り取る
+    const size = Math.min(mat.cols, mat.rows);
+    const x = Math.floor((mat.cols - size) / 2);
+    const y = Math.floor((mat.rows - size) / 2);
+    const croppedMat = matManager.add(crop(mat, x, y, size, size));
+    // 100x100にリサイズ
+    const resizedMat = new cv.Mat();
+    cv.resize(croppedMat, resizedMat, new cv.Size(100, 100), 0, 0, size > 100 ? cv.INTER_AREA : cv.INTER_LINEAR);
+
+    return resizedMat;
+  }
+
   /**
    * アイコンの特徴量を計算する
    */
   public computeFeatures(mat: any): string | null {
     // アイコンの中心部分のみを特徴量計算に使う
     using matManager = new MatManager();
-
-    // アスペクト比を維持して100x100に正規化
-    const scale = Math.min(100 / mat.cols, 100 / mat.rows);
-    const newWidth = Math.round(mat.cols * scale);
-    const newHeight = Math.round(mat.rows * scale);
-
-    const resizedMat = matManager.add(new cv.Mat());
-    // 縮小時はINTER_AREA、拡大時はINTER_LINEARが推奨
-    cv.resize(mat, resizedMat, new cv.Size(newWidth, newHeight), 0, 0, scale < 1.0 ? cv.INTER_AREA : cv.INTER_LINEAR);
-
-    const mask = matManager.add(new cv.Mat.zeros(newHeight, newWidth, cv.CV_8UC1));
-    const rect = new cv.Rect(newWidth * 0.25, newHeight * 0.25, newWidth * 0.5, newHeight * 0.5);
-    const roi = matManager.add(mask.roi(rect));
-    roi.setTo(new cv.Scalar(255));
+    const grayMat = matManager.add(new cv.Mat());
+    if (mat.channels() === 4) {
+      cv.cvtColor(mat, grayMat, cv.COLOR_RGBA2GRAY);
+    } else if (mat.channels() === 3) {
+      cv.cvtColor(mat, grayMat, cv.COLOR_RGB2GRAY);
+    } else {
+      mat.copyTo(grayMat);
+    }
+    // 前処理
+    const preprocessedMat = matManager.add(IconFeatureService.preprocessCompute(grayMat));
+    // マスク作成
+    const mask = matManager.add(new cv.Mat.zeros(100, 100, cv.CV_8UC1));
+    // 枠線、所持数部分以外を有効にする
+    mask.roi(new cv.Rect(10, 10, 80, 70)).setTo(new cv.Scalar(255));
 
     try {
-      using result = computeFeatures(resizedMat, mask);
+      using result = computeFeatures(preprocessedMat, mask);
       return result ? toBase64(result.descriptors) : null;
     } catch (e) {
       console.error(e);
@@ -60,21 +74,22 @@ export class IconFeatureService {
    */
   public computeColorHash(mat: any): number[] {
     using matManager = new MatManager();
-    const rect = new cv.Rect(mat.cols * 0.25, mat.rows * 0.25, mat.cols * 0.5, mat.rows * 0.5);
-    const cropped = matManager.add(mat.roi(rect));
-    const resized = matManager.add(new cv.Mat());
-    cv.resize(cropped, resized, new cv.Size(3, 3));
+    const preprocessMat = matManager.add(IconFeatureService.preprocessCompute(mat));
+    // 枠線、所持数部分を除外する
+    const cropMat = matManager.add(crop(preprocessMat, 20, 20, 60, 60));
+    const resizedMat = matManager.add(new cv.Mat());
+    cv.resize(cropMat, resizedMat, new cv.Size(3, 3));
 
     const hsvMat = matManager.add(new cv.Mat());
-    if (resized.channels() === 4) {
+    if (resizedMat.channels() === 4) {
       const rgbMat = matManager.add(new cv.Mat());
-      cv.cvtColor(resized, rgbMat, cv.COLOR_RGBA2RGB);
+      cv.cvtColor(resizedMat, rgbMat, cv.COLOR_RGBA2RGB);
       cv.cvtColor(rgbMat, hsvMat, cv.COLOR_RGB2HSV);
-    } else if (resized.channels() === 3) {
-      cv.cvtColor(resized, hsvMat, cv.COLOR_RGB2HSV);
+    } else if (resizedMat.channels() === 3) {
+      cv.cvtColor(resizedMat, hsvMat, cv.COLOR_RGB2HSV);
     } else {
       // 万が一チャンネル数が合わない場合はそのままコピー
-      resized.copyTo(hsvMat);
+      resizedMat.copyTo(hsvMat);
     }
 
     const data = Array.from(new Uint8Array(hsvMat.data));

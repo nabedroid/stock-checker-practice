@@ -141,6 +141,7 @@ export class ItemMasterService {
     if (!features || typeof cv === 'undefined') return null;
 
     const targetMat = fromBase64(features);
+
     if (targetMat.empty()) {
       targetMat.delete();
       return null;
@@ -159,7 +160,11 @@ export class ItemMasterService {
         continue;
       }
 
-      const score = compare(targetMat, itemMat);
+      // 特徴量の比較
+      // minDistance は要調整（許容するハミング距離なので、小さいほど厳密、大きいほど緩い）
+      // 高くすると誤認識が発生し、低くすると認識漏れが発生する
+      // 高くして誤認識が発生しても、後続の処理で最大スコアのデータが選ばれるので問題ない
+      const score = compare(targetMat, itemMat, 50);
 
       if (score > maxScore) {
         maxScore = score;

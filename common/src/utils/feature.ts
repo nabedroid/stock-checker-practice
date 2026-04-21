@@ -5,7 +5,8 @@ let matcher: any = null;
 
 const _init = () => {
   if (!orb) {
-    orb = new cv.ORB(500);
+    // nfeatures: 100
+    orb = new cv.ORB(100);
   }
   if (!matcher) {
     matcher = new cv.BFMatcher(cv.NORM_HAMMING, true);
@@ -66,6 +67,8 @@ export const compare = (descriptors1: any, descriptors2: any, minDistance: numbe
     let goodMatches = 0;
 
     for (let i = 0; i < matches.size(); i++) {
+      // distance はハミング距離、小さいほど類似度が高い
+      // 特徴量間の距離が閾値以下なら一致とみなす
       if (matches.get(i).distance < minDistance) {
         goodMatches++;
       }
